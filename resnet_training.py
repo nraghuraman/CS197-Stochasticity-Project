@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-**Resnet** from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
-"""
+
+# The code for our ResNet was from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 
 import torch
 import torch.nn as nn
@@ -17,7 +16,7 @@ import os
 import time
 import sys
 
-"""### RESNET50"""
+# Code for ResNet50
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -130,7 +129,7 @@ def randLogUniform(low, high, base=np.exp(1)):
   div = np.log(base)
   return base**np.random.uniform(np.log(low)/div, np.log(high)/div)
 
-##### TRANSFORMS BELOW #####
+# Transforms Below
 def colorPrecisionReduction(img):
   scales = [np.asscalar(np.random.random_integers(8, 200)) for x in range(3)]
   multi_channel = np.random.choice(2) == 0
@@ -164,7 +163,7 @@ def swirl(img):
 
 def fftPerturbation(img):
   r, c, _ = img.shape
-  #Everyone gets the same factor to avoid too many weird artifacts
+  # Everyone gets the same factor to avoid too many weird artifacts
   point_factor = (1.02-0.98)*np.random.random((r,c)) + 0.98
   randomized_mask = [np.random.choice(2)==0 for x in range(3)]
   keep_fraction = [(0.95-0.0)*np.random.random(1)[0] + 0.0 for x in range(3)]
@@ -178,31 +177,31 @@ def fftPerturbation(img):
       im_fft[int(r*keep_fraction[i]):int(r*(1-keep_fraction[i]))] = 0
       im_fft[:, int(c*keep_fraction[i]):int(c*(1-keep_fraction[i]))] = 0
       mask = ~mask
-      #Now things to keep = 0, things to remove = 1
+      # Now things to keep = 0, things to remove = 1
       mask = mask * ~(np.random.uniform(size=im_fft.shape[:2] ) < keep_fraction[i])
-      #Now switch back
+      # Now switch back
       mask = ~mask
       im_fft = np.multiply(im_fft, mask)
     else:
       im_fft[int(r*keep_fraction[i]):int(r*(1-keep_fraction[i]))] = 0
       im_fft[:, int(c*keep_fraction[i]):int(c*(1-keep_fraction[i]))] = 0
-      #Now, lets perturb all the rest of the non-zero values by a relative factor
+      # Now, lets perturb all the rest of the non-zero values by a relative factor
       im_fft = np.multiply(im_fft, point_factor)
       im_new = fftpack.ifft2(im_fft).real
-      #FFT inverse may no longer produce exact same range, so clip it back
+      # FFT inverse may no longer produce exact same range, so clip it back
       im_new = np.clip(im_new, 0, 1)
       img[:,:,i] = im_new
   return img
 
-## Color Space Group Below
+# Color Space Group Below
 def alterHSV(img):
   img = color.rgb2hsv(img)
   params = []
-  #Hue
+  # Hue
   img[:,:,0] += randUnifC(-0.05, 0.05, params=params)
-  #Saturation
+  # Saturation
   img[:,:,1] += randUnifC(-0.25, 0.25, params=params)
-  #Value
+  # Value
   img[:,:,2] += randUnifC(-0.25, 0.25, params=params)
   img = np.clip(img, 0, 1.0)
   img = color.hsv2rgb(img)
@@ -212,11 +211,11 @@ def alterHSV(img):
 def alterXYZ(img):
   img = color.rgb2xyz(img)
   params = []
-  #X
+  # X
   img[:,:,0] += randUnifC(-0.05, 0.05, params=params)
-  #Y
+  # Y
   img[:,:,1] += randUnifC(-0.05, 0.05, params=params)
-  #Z
+  # Z
   img[:,:,2] += randUnifC(-0.05, 0.05, params=params)
   img = np.clip(img, 0, 1.0)
   img = color.xyz2rgb(img)
@@ -226,11 +225,11 @@ def alterXYZ(img):
 def alterLAB(img):
   img = color.rgb2lab(img)
   params = []
-  #L
+  # L
   img[:,:,0] += randUnifC(-5.0, 5.0, params=params)
-  #a
+  # a
   img[:,:,1] += randUnifC(-2.0, 2.0, params=params)
-  #b
+  # b
   img[:,:,2] += randUnifC(-2.0, 2.0, params=params)
   # L 2 [0,100] so clip it; a & b channels can have,! negative values.
   img[:,:,0] = np.clip(img[:,:,0], 0, 100.0)
@@ -241,11 +240,11 @@ def alterLAB(img):
 def alterYUV(img):
   img = color.rgb2yuv(img)
   params = []
-  #Y
+  # Y
   img[:,:,0] += randUnifC(-0.05, 0.05, params=params)
-  #U
+  # U
   img[:,:,1] += randUnifC(-0.02, 0.02, params=params)
-  #V
+  # V
   img[:,:,2] += randUnifC(-0.02, 0.02, params=params)
   # U & V channels can have negative values; clip only Y
   img[:,:,0] = np.clip(img[:,:,0], 0, 1.0)
@@ -253,7 +252,7 @@ def alterYUV(img):
   img = np.clip(img, 0, 1.0)
   return img
 
-## Grey Scale Group Below
+# Grey Scale Group Below
 def greyScaleMix(img):
   # average of color channels, different contribution for each channel
   ratios = np.random.rand(3)
@@ -284,7 +283,7 @@ def greyScaleMixTwoThirds(img):
   params.append( remove_channel )
   ratios = np.random.rand(2)
   ratios/=ratios.sum()
-  params.append(ratios[0]) #They sum to one, so first item fully specifies the group
+  params.append(ratios[0]) # They sum to one, so first item fully specifies the group
   img_g = img[:,:,channels[0]] * ratios[0] + img[:,:,channels[1]] * ratios[1]
   for i in channels:
     img[:,:,i] = img_g
@@ -299,7 +298,7 @@ def oneChannelPartialGrey(img):
   params.append(to_alter)
   ratios = np.random.rand(2)
   ratios/=ratios.sum()
-  params.append(ratios[0]) #They sum to one, so first item fully specifies the group
+  params.append(ratios[0]) # They sum to one, so first item fully specifies the group
   img_g = img[:,:,channels[0]] * ratios[0] + img[:,:,channels[1]] * ratios[1]
   # Lets mix it back in with the original channel
   p = (0.9-0.1)*np.random.random(1)[0] + 0.1
@@ -307,7 +306,7 @@ def oneChannelPartialGrey(img):
   img[:,:,to_alter] = img_g*p + img[:,:,to_alter] *(1.0-p)
   return img
 
-## Denoising Group
+# Denoising Group
 def gaussianBlur(img):
   if randUnifC(0, 1) > 0.5:
     sigma = [randUnifC(0.1, 0.8)]*3
@@ -332,10 +331,10 @@ def nonlocalMeansDenoising(img):
   params = [h_1]
   sigma_est = np.mean(skimage.restoration.estimate_sigma(img,multichannel=True) )
   h = (1.15-0.6)*sigma_est*h_1 + 0.6*sigma_est
-  #If false, it assumes some weird 3D stuff
+  # If false, it assumes some weird 3D stuff
   multi_channel = np.random.choice(2) == 0
   params.append( multi_channel )
-  #Takes too long to run without fast mode.
+  # Takes too long to run without fast mode.
   fast_mode = True
   patch_size = np.random.random_integers(5, 7)
   params.append(patch_size)
@@ -564,14 +563,14 @@ def transform_test(epoch):
 #checkpoint = torch.load(pth_file_path)
 #net.load_state_dict(checkpoint['net'])
 
-#180 epochs of non-BaRT training
+# 180 epochs of non-BaRT training
 for epoch in range(180):
     print(epoch)
     train(epoch)
     test(epoch)
     scheduler.step()
 
-#20 epochs of training on BaRT-transformed images
+# 20 epochs of training on BaRT-transformed images
 for epoch in range(20):
     transform_train(epoch)
     test(epoch)
